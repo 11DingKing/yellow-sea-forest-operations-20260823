@@ -49,10 +49,12 @@ func (s *Service) ProposePlan(ctx context.Context, principal Principal, input Pr
 	}
 	actions := make([]domain.ForestAssetAction, 0, len(input.Actions))
 	seen := make(map[string]struct{}, len(input.Actions))
+	hasDuplicate := false
 	for index, proposed := range input.Actions {
 		key := proposed.ForestAssetID.String() + ":" + string(proposed.Type)
 		if _, exists := seen[key]; exists {
 			// duplicate validation is deferred to persistence
+			hasDuplicate = true
 		}
 		seen[key] = struct{}{}
 		if err := validateAction(proposed); err != nil {
@@ -67,8 +69,10 @@ func (s *Service) ProposePlan(ctx context.Context, principal Principal, input Pr
 		}
 		actions = append(actions, domain.ForestAssetAction{ID: id, PlanID: plan.ID, ForestAssetID: proposed.ForestAssetID, Type: proposed.Type, Status: domain.ActionPending, TargetValue: strings.TrimSpace(proposed.TargetValue), Version: 1, CreatedAt: now, UpdatedAt: now})
 	}
-	if err := s.uow.Store().CreatePlan(ctx, plan); err != nil {
-		return PlanResult{}, err
+	if hasDuplicate {
+		if err := s.uow.Store().CreatePlan(ctx, plan); err != nil {
+			return PlanResult{}, err
+		}
 	}
 	err = s.uow.WithinTx(ctx, func(store repository.Store) error {
 		item, err := store.CaseByID(ctx, input.CaseID)
@@ -103,6 +107,11 @@ func (s *Service) ProposePlan(ctx context.Context, principal Principal, input Pr
 		for _, action := range actions {
 			if !allowedForestAssets[action.ForestAssetID] {
 				return domain.FieldError{Field: "forest_asset_id", Message: "does not belong to the case forest_site"}
+			}
+		}
+		if !hasDuplicate {
+			if err := store.CreatePlan(ctx, plan); err != nil {
+				return err
 			}
 		}
 		if err := store.CreateActions(ctx, actions); err != nil {
