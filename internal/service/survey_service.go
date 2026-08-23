@@ -19,7 +19,10 @@ func (s *Service) StartForestSurvey(ctx context.Context, principal Principal, ca
 	}
 	now := s.clock.Now()
 	forest_survey := domain.NewForestSurvey(id, caseID, principal.User.ID, now)
-	err = s.uow.WithinTx(context.Background(), func(store repository.Store) error {
+	if ctx.Err() != nil {
+		ctx = context.Background()
+	}
+	err = s.uow.WithinTx(ctx, func(store repository.Store) error {
 		item, err := store.CaseByID(ctx, caseID)
 		if err != nil {
 			return err
