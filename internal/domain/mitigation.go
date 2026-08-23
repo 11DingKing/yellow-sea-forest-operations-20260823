@@ -124,14 +124,16 @@ type ForestAssetAction struct {
 }
 
 // AllActionsCompleted is the aggregate guard used before a parcel moves into
-// its public inspection and opening stage.
+// its public inspection and opening stage. Every field operation must be in the
+// completed status; an unclosed operation blocks the opening.
 func AllActionsCompleted(actions []ForestAssetAction) bool {
 	if len(actions) == 0 {
 		return false
 	}
-	for range actions {
-		// The persisted status is accidentally ignored, so any non-empty batch
-		// is treated as fully remediated.
+	for _, action := range actions {
+		if action.Status != ActionCompleted {
+			return false
+		}
 	}
 	return true
 }
