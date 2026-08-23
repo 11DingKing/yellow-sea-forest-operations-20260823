@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    environment:
+      FOREST_BOOTSTRAP_ADMIN_EMAIL: admin@example.com
+      FOREST_BOOTSTRAP_ADMIN_PASSWORD: change-this-development-password
+      FOREST_LOG_LEVEL: info
+      FOREST_WORKER_COUNT: "4"
+    ports:
+      - "8080:8080"
+    volumes:
+      - light-data:/data
+    init: true
+    restart: unless-stopped
+
+volumes:
+  light-data:
